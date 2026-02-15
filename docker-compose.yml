@@ -1,0 +1,178 @@
+version: '3.8'
+
+services:
+  # Main Python Application
+  python-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./app:/app
+      - ./requirements.txt:/app/requirements.txt
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+      - DATABASE_URL=mysql+pymysql://root:password@mysql:3306/python-fastapi
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
+    depends_on:
+      - mysql
+  mysql:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: python-fastapi
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  # Python Development with Jupyter Notebook
+  # jupyter:
+  #   image: jupyter/base-notebook:python-3.11
+  #   ports:
+  #     - "8888:8888"
+  #   volumes:
+  #     - ./notebooks:/home/jovyan/notebooks
+  #     - ./data:/home/jovyan/data
+  #   environment:
+  #     - JUPYTER_ENABLE_LAB=yes
+  #     - CHOWN_HOME=yes
+  #     - CHOWN_HOME_OPTS=-R
+  #   command: start-notebook.sh --NotebookApp.token=''
+
+  # FastAPI Application
+  # fastapi-app:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.fastapi
+  #   ports:
+  #     - "8001:8000"
+  #   volumes:
+  #     - ./fastapi_app:/app
+  #   environment:
+  #     - ENVIRONMENT=development
+  #   command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+  #   depends_on:
+  #     - postgres
+  #     - redis
+
+  # Django Application
+  # django-app:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.django
+  #   ports:
+  #     - "8002:8000"
+  #   volumes:
+  #     - ./django_project:/app
+  #     - ./static:/app/static
+  #     - ./media:/app/media
+  #   environment:
+  #     - DJANGO_SETTINGS_MODULE=project.settings.dev
+  #   command: python manage.py runserver 0.0.0.0:8000
+  #   depends_on:
+  #     - postgres
+
+  # Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=pythonuser
+      - POSTGRES_PASSWORD=pythonpass
+      - POSTGRES_DB=pythondb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  # Redis Cache
+  # redis:
+  #   image: redis:7-alpine
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+
+  # MongoDB
+  # mongodb:
+  #   image: mongo:6
+  #   ports:
+  #     - "27017:27017"
+  #   environment:
+  #     - MONGO_INITDB_ROOT_USERNAME=admin
+  #     - MONGO_INITDB_ROOT_PASSWORD=secret
+  #   volumes:
+  #     - mongo_data:/data/db
+
+  # pgAdmin (PostgreSQL GUI)
+  # pgadmin:
+  #   image: dpage/pgadmin4
+  #   environment:
+  #     - PGADMIN_DEFAULT_EMAIL=admin@admin.com
+  #     - PGADMIN_DEFAULT_PASSWORD=admin
+  #   ports:
+  #     - "5050:80"
+  #   volumes:
+  #     - pgadmin_data:/var/lib/pgadmin
+
+  # MongoDB GUI (Mongo Express)
+  # mongo-express:
+  #   image: mongo-express
+  #   ports:
+  #     - "8081:8081"
+  #   environment:
+  #     - ME_CONFIG_MONGODB_ADMINUSERNAME=admin
+  #     - ME_CONFIG_MONGODB_ADMINPASSWORD=secret
+  #     - ME_CONFIG_MONGODB_SERVER=mongodb
+  #   depends_on:
+  #     - mongodb
+
+  # Celery Worker
+  # celery-worker:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   command: celery -A app.celery worker --loglevel=info
+  #   volumes:
+  #     - ./app:/app
+  #   environment:
+  #     - CELERY_BROKER_URL=redis://redis:6379/0
+  #     - CELERY_RESULT_BACKEND=redis://redis:6379/0
+  #   depends_on:
+  #     - redis
+  #     - python-app
+
+  # Celery Beat
+  # celery-beat:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   command: celery -A app.celery beat --loglevel=info
+  #   volumes:
+  #     - ./app:/app
+  #   environment:
+  #     - CELERY_BROKER_URL=redis://redis:6379/0
+  #   depends_on:
+  #     - redis
+  #     - celery-worker
+
+  # Flower (Celery Monitoring)
+  # flower:
+  #   image: mher/flower:0.9.7
+  #   ports:
+  #     - "5555:5555"
+  #   environment:
+  #     - CELERY_BROKER_URL=redis://redis:6379/0
+  #   depends_on:
+  #     - celery-worker
+
+volumes:
+  postgres_data:
+  mysql_data:
+  # redis_data:
+  # mongo_data:
+  # pgadmin_data:
