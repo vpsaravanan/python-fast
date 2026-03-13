@@ -34,12 +34,14 @@
 #         "message": f"User '{username}' created successfully",
 #         "data": user_data
 #     }
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from sqlalchemy.orm import Session
 from database import get_db
 from models import User
 from pydantic import BaseModel, EmailStr
 import sqlalchemy
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 class UserCreate(BaseModel):
     username: str
@@ -47,8 +49,11 @@ class UserCreate(BaseModel):
     age: int = 18
 
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address, headers_enabled=True )
+
 
 @router.post("/create-user")
+
 async def create_user(user: UserCreate, db: Session = Depends(get_db)):
     """
     Create a new user in the MySQL database
@@ -84,9 +89,9 @@ async def create_user(user: UserCreate, db: Session = Depends(get_db)):
             "created_at": new_user.created_at.isoformat() if new_user.created_at else None
         }
     }
-
+@limiter.limit("5/minute")
 @router.get("/users/{user_id}")
-def get_user(user_id: int, db: Session = Depends(get_db)):
+def get_user(request: Request, user_id: int, db: Session = Depends(get_db)):
     """Get a user by ID"""
     print (sqlalchemy.__version__)
     user = db.query(User).filter(User.id == user_id).first()
@@ -101,3 +106,13 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
         "age": user.age,
         "created_at": user.created_at.isoformat() if user.created_at else None
     }
+
+@router.delete("/users/{user_id}")
+def userdelete(request:Request, user_id:int, db:Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    # print(user.email)
+    if not user:
+        raise HTTPException(status_code=404, detail=f" user not exists {sqlalchemy.__version__}")
+    db.delete(user)
+    db.commit()
+    return 'User deleted successfully';

@@ -9,8 +9,20 @@ from datetime import datetime
 import sys
 import site
 from routers import users
-from routers import create_user
+from routers import create_user, secure_data
 from test import test
+from file_operations import filerouter
+from redis_test import redisrouter
+from blogs import blogrouter
+# try:
+#     from .test import test
+# except ImportError:  # pragma: no cover - fallback for direct script execution
+#     from test import test
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from middleware import CustomMiddleware
 
 # Configure logging
 logging.basicConfig(
@@ -23,6 +35,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+limiter = Limiter(
+    key_func=get_remote_address,
+    headers_enabled=True  # 👈 THIS IS CRITICAL
+)
+
 # Initialize FastAPI app
 app = FastAPI(
     title="Python Data Processing API",
@@ -30,8 +47,12 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
+    
 )
-
+app.state.limiter = limiter
+# app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+# app.add_middleware(SlowAPIMiddleware)
+# app.add_middleware(CustomMiddleware)
 # Application startup time
 start_time = datetime.now()
 
@@ -113,11 +134,15 @@ def process_data(data: List[float]) -> ProcessDataResponse:
         raise HTTPException(status_code=400, detail=str(e))
 
 # Initialize test value at startup
-test().get_value()  
+test().get_value()
 logger.info(f"Test value initialized: {test().get_value()}")
 
 app.include_router(users.router)
 app.include_router(create_user.router)
+app.include_router(secure_data.router)
+app.include_router(filerouter)
+app.include_router(redisrouter)
+app.include_router(blogrouter)
 
 # API Routes
 # @app.get("/", response_class=HTMLResponse)
@@ -197,24 +222,8 @@ app.include_router(create_user.router)
 #     </body>
 #     </html>
 #     """
-#     return {"message": "Hello, FastAPI!"}
-#     return html_content
-
-# @app.get("/health", response_model=HealthResponse)
-# async def health_check():
-#     """Health check endpoint"""
-#     uptime = datetime.now() - start_time
-#     logger.info("Health check requested")
-#     print(typing.__file__)
-#     print(f"sys is: {sys}")
-#     print(f"user site packages are: {site.getusersitepackages()}")
-
-#     return HealthResponse(
-#         status="healthy",
-#         uptime=str(uptime),
-#         timestamp=datetime.now().isoformat(),
-#         output= sys.path.__str__() + ", --- " + sys.argv.__str__()
-#     )
+    # return {"message": "Hello, FastAPI!"}
+    # return html_content
 
 # @app.post("/process", response_model=ProcessDataResponse)
 # async def process_endpoint(request: ProcessDataRequest):
@@ -248,7 +257,7 @@ app.include_router(create_user.router)
 #         result=result,
 #         timestamp=datetime.now().isoformat()
 #     )
-@app.get("/users")
+
 
 @app.on_event("startup")
 async def startup_event():

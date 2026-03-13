@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 from database import get_db
 from models import User
@@ -7,17 +7,22 @@ import gc
 import copy
 import multiprocessing
 import time
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
 
 router = APIRouter()
-
+limiter = Limiter(key_func=get_remote_address)
 @router.get("/users")
-def get_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+@limiter.limit("2/minute")
+async def get_users(request: Request, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     """
     Get all users from the MySQL database
     
     - **skip**: Number of records to skip (for pagination)
     - **limit**: Maximum number of records to return
     """
+    print(sys.path)
     # return {"message": "This endpoint will return all users."}
     users = db.query(User).offset(skip).limit(limit).all()
     # data = {"name": "Ram", "age": 30}
@@ -34,15 +39,16 @@ def get_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     # mv = memoryview(data)  # No copy created
     # mv[4] = 73
     # print(data)
-    square(5)
-    original = [[1, 2], [3, 4]]
-    original[1][1] = 11
-    shallow = copy.copy(original)
-    print(shallow)
-    deep = copy.deepcopy(original)
-    print(deep)
+    # square(5)
+    # original = [[1, 2], [3, 4]]
+    # original[1][1] = 11
+    # shallow = copy.copy(original)
+    # print(shallow)
+    # deep = copy.deepcopy(original)
+    # print(deep)
+    systemPath = sys.path
     return {
-        "count": len(users),
+        "count": systemPath,
         "users": [
             {
                 "id": user.id,
